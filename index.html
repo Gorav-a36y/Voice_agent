@@ -211,20 +211,55 @@
         // Start conversation
         document.getElementById('startBtn').addEventListener('click', async () => {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Request microphone access with specific constraints
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: 44100
+                    } 
+                });
                 
                 sessionId = generateSessionId();
                 document.getElementById('sessionDisplay').textContent = `Session ID: ${sessionId}`;
                 document.getElementById('sessionDisplayRecording').textContent = `Session ID: ${sessionId}`;
 
-                mediaRecorder = new MediaRecorder(stream);
+                // Check for supported MIME types
+                const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' :
+                                MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' :
+                                MediaRecorder.isTypeSupported('audio/ogg') ? 'audio/ogg' : '';
+                
+                if (!mimeType) {
+                    showStatus('No supported audio format found', 'error');
+                    return;
+                }
+
+                console.log('Using MIME type:', mimeType);
+
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: mimeType
+                });
+                
                 audioChunks = [];
 
                 mediaRecorder.ondataavailable = (event) => {
-                    audioChunks.push(event.data);
+                    if (event.data && event.data.size > 0) {
+                        console.log('Audio chunk received:', event.data.size, 'bytes');
+                        audioChunks.push(event.data);
+                    }
                 };
 
-                mediaRecorder.start();
+                mediaRecorder.onstart = () => {
+                    console.log('Recording started');
+                };
+
+                mediaRecorder.onerror = (event) => {
+                    console.error('MediaRecorder error:', event.error);
+                    showStatus('Recording error', 'error');
+                };
+
+                // Start recording and collect data every second
+                mediaRecorder.start(1000);
 
                 // Switch to recording screen
                 document.getElementById('startScreen').classList.add('hidden');
@@ -270,20 +305,37 @@
         // Send audio to webhook
         async function sendToWebhook(audioBlob) {
             try {
+                // Create FormData and append audio file
                 const formData = new FormData();
-                formData.append('audio', audioBlob, 'voice_recording.webm');
+                
+                // Create a proper file object from the blob
+                const audioFile = new File([audioBlob], 'voice_recording.webm', {
+                    type: 'audio/webm',
+                    lastModified: Date.now()
+                });
+                
+                formData.append('audio', audioFile);
                 formData.append('sessionId', sessionId);
                 formData.append('timestamp', new Date().toISOString());
+
+                console.log('Sending audio to webhook...', {
+                    size: audioBlob.size,
+                    type: audioBlob.type,
+                    sessionId: sessionId
+                });
 
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     body: formData
+                    // Don't set Content-Type header - browser will set it automatically with boundary
                 });
 
                 if (response.ok) {
                     showStatus('Voice sent successfully', 'success');
+                    console.log('Response:', await response.text());
                 } else {
                     showStatus('Failed to send voice', 'error');
+                    console.error('Response status:', response.status);
                 }
             } catch (error) {
                 showStatus('Error sending voice', 'error');
