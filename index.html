@@ -396,67 +396,61 @@
         // Send audio to webhook
         async function sendToWebhook(audioBlob) {
             try {
-                showStatus('Converting audio...', 'info');
+                showStatus('Sending voice...', 'info');
                 
-                // Convert blob to base64
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
+                // Create FormData to send file
+                const formData = new FormData();
                 
-                reader.onloadend = async () => {
-                    const base64Audio = reader.result.split(',')[1];
+                // Determine file extension
+                const extension = audioBlob.type.includes('webm') ? 'webm' :
+                                 audioBlob.type.includes('mp4') ? 'mp4' : 'ogg';
+                
+                // Create file from blob
+                const audioFile = new File([audioBlob], `voice.${extension}`, {
+                    type: audioBlob.type,
+                    lastModified: Date.now()
+                });
+                
+                formData.append('voice', audioFile);
+                formData.append('sessionId', sessionId);
+                formData.append('timestamp', new Date().toISOString());
+
+                console.log('Sending to webhook...', {
+                    size: audioBlob.size,
+                    type: audioBlob.type,
+                    sessionId: sessionId
+                });
+
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('Response status:', response.status);
+
+                if (response.ok) {
+                    // Check if response is audio
+                    const contentType = response.headers.get('content-type');
                     
-                    console.log('Audio converted to base64, length:', base64Audio.length);
-                    
-                    const payload = {
-                        audioData: base64Audio,
-                        mimeType: audioBlob.type,
-                        sessionId: sessionId,
-                        timestamp: new Date().toISOString(),
-                        size: audioBlob.size
-                    };
-
-                    console.log('Sending to webhook...');
-
-                    const response = await fetch(WEBHOOK_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(payload)
-                    });
-
-                    console.log('Response status:', response.status);
-
-                    if (response.ok) {
-                        // Check if response is audio
-                        const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('audio')) {
+                        // Get AI response text from header if available
+                        const aiResponseText = response.headers.get('X-AI-Response') || 'AI is speaking...';
                         
-                        if (contentType && contentType.includes('audio')) {
-                            // Get AI response text from header if available
-                            const aiResponseText = response.headers.get('X-AI-Response') || 'AI is speaking...';
-                            
-                            // Get audio blob
-                            const audioBlob = await response.blob();
-                            console.log('Received audio response:', audioBlob.size, 'bytes');
-                            
-                            // Play audio
-                            playAudioResponse(audioBlob, aiResponseText);
-                        } else {
-                            showStatus('Unexpected response format', 'error');
-                            showScreen('startScreen');
-                        }
+                        // Get audio blob
+                        const audioBlob = await response.blob();
+                        console.log('Received audio response:', audioBlob.size, 'bytes');
+                        
+                        // Play audio
+                        playAudioResponse(audioBlob, aiResponseText);
                     } else {
-                        showStatus('Failed to get response', 'error');
-                        console.error('Response status:', response.status);
+                        showStatus('Unexpected response format', 'error');
                         showScreen('startScreen');
                     }
-                };
-                
-                reader.onerror = () => {
-                    showStatus('Error converting audio', 'error');
+                } else {
+                    showStatus('Failed to get response', 'error');
+                    console.error('Response status:', response.status);
                     showScreen('startScreen');
-                };
-                
+                }
             } catch (error) {
                 showStatus('Error sending voice', 'error');
                 console.error('Error:', error);
