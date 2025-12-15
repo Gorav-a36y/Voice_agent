@@ -53,6 +53,16 @@
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         }
 
+        .mic-icon.processing {
+            animation: spin 2s linear infinite;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .mic-icon.playing {
+            animation: pulse 1s infinite;
+            background: linear-gradient(135deg, #FFA500 0%, #FF6347 100%);
+        }
+
         @keyframes pulse {
             0%, 100% {
                 transform: scale(1);
@@ -62,10 +72,24 @@
             }
         }
 
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
         .mic-icon svg {
             width: 60px;
             height: 60px;
             fill: white;
+        }
+
+        .speaker-icon {
+            width: 60px;
+            height: 60px;
         }
 
         .btn {
@@ -80,12 +104,17 @@
             margin: 10px 0;
         }
 
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .btn-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
 
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
@@ -95,7 +124,7 @@
             color: white;
         }
 
-        .btn-success:hover {
+        .btn-success:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
         }
@@ -105,7 +134,7 @@
             color: white;
         }
 
-        .btn-danger:hover {
+        .btn-danger:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(235, 51, 73, 0.4);
         }
@@ -138,6 +167,16 @@
             color: #f57c00;
         }
 
+        .status.processing {
+            background: #e0f7fa;
+            color: #00796b;
+        }
+
+        .status.playing {
+            background: #fff3e0;
+            color: #FF6347;
+        }
+
         .session-id {
             margin-top: 15px;
             font-size: 12px;
@@ -152,6 +191,18 @@
         h2 {
             color: #333;
             margin-bottom: 20px;
+        }
+
+        .response-text {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #333;
+            max-height: 150px;
+            overflow-y: auto;
+            text-align: left;
         }
     </style>
 </head>
@@ -183,14 +234,40 @@
             <div class="session-id" id="sessionDisplayRecording"></div>
         </div>
 
+        <div id="processingScreen" class="hidden">
+            <div class="mic-icon processing" id="micIconProcessing">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+            </div>
+            <h2>Processing...</h2>
+            <div class="status processing">AI is thinking...</div>
+            <div class="session-id" id="sessionDisplayProcessing"></div>
+        </div>
+
+        <div id="playingScreen" class="hidden">
+            <div class="mic-icon playing" id="micIconPlaying">
+                <svg viewBox="0 0 24 24" class="speaker-icon">
+                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                </svg>
+            </div>
+            <h2>Playing Response</h2>
+            <div class="response-text" id="responseText"></div>
+            <button class="btn btn-primary" id="continueBtn">Continue Conversation</button>
+            <button class="btn btn-danger" id="endCallBtn2">End Call</button>
+            <div class="session-id" id="sessionDisplayPlaying"></div>
+        </div>
+
         <div class="status info hidden" id="mainStatus"></div>
     </div>
+
+    <audio id="audioPlayer" style="display: none;"></audio>
 
     <script>
         let mediaRecorder;
         let audioChunks = [];
         let sessionId = '';
-        const WEBHOOK_URL = 'https://parkashdev.app.n8n.cloud/webhook-test/voice-agent';
+        const WEBHOOK_URL = 'https://devkhemani.app.n8n.cloud/webhook-test/voice-agent';
 
         // Generate unique session ID
         function generateSessionId() {
@@ -208,10 +285,27 @@
             }, 3000);
         }
 
+        // Show specific screen
+        function showScreen(screenId) {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('recordingScreen').classList.add('hidden');
+            document.getElementById('processingScreen').classList.add('hidden');
+            document.getElementById('playingScreen').classList.add('hidden');
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+
+        // Update session display
+        function updateSessionDisplay() {
+            const sessionText = `Session ID: ${sessionId}`;
+            document.getElementById('sessionDisplay').textContent = sessionText;
+            document.getElementById('sessionDisplayRecording').textContent = sessionText;
+            document.getElementById('sessionDisplayProcessing').textContent = sessionText;
+            document.getElementById('sessionDisplayPlaying').textContent = sessionText;
+        }
+
         // Start conversation
         document.getElementById('startBtn').addEventListener('click', async () => {
             try {
-                // Request microphone access with specific constraints
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     audio: {
                         echoCancellation: true,
@@ -221,10 +315,8 @@
                 });
                 
                 sessionId = generateSessionId();
-                document.getElementById('sessionDisplay').textContent = `Session ID: ${sessionId}`;
-                document.getElementById('sessionDisplayRecording').textContent = `Session ID: ${sessionId}`;
+                updateSessionDisplay();
 
-                // Check for supported MIME types
                 const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' :
                                 MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' :
                                 MediaRecorder.isTypeSupported('audio/ogg') ? 'audio/ogg' : '';
@@ -258,13 +350,8 @@
                     showStatus('Recording error', 'error');
                 };
 
-                // Start recording and collect data every second
                 mediaRecorder.start(1000);
-
-                // Switch to recording screen
-                document.getElementById('startScreen').classList.add('hidden');
-                document.getElementById('recordingScreen').classList.remove('hidden');
-
+                showScreen('recordingScreen');
                 showStatus('Recording started', 'success');
             } catch (error) {
                 showStatus('Microphone access denied', 'error');
@@ -291,90 +378,136 @@
                     if (audioBlob.size === 0) {
                         showStatus('Empty audio recording', 'error');
                     } else {
-                        showStatus('Sending voice...', 'info');
+                        // Stop microphone
+                        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                        
+                        // Show processing screen
+                        showScreen('processingScreen');
+                        
+                        // Send to webhook and wait for response
                         await sendToWebhook(audioBlob);
                     }
                     
-                    // Stop all tracks and return to start screen
-                    mediaRecorder.stream.getTracks().forEach(track => track.stop());
-                    
-                    // Reset
                     audioChunks = [];
-                    
-                    // Return to start screen
-                    document.getElementById('recordingScreen').classList.add('hidden');
-                    document.getElementById('startScreen').classList.remove('hidden');
                 };
             }
-        });
-
-        // End call
-        document.getElementById('endCallBtn').addEventListener('click', () => {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-            }
-
-            // Return to start screen
-            document.getElementById('recordingScreen').classList.add('hidden');
-            document.getElementById('startScreen').classList.remove('hidden');
-            
-            showStatus('Call ended', 'info');
         });
 
         // Send audio to webhook
         async function sendToWebhook(audioBlob) {
             try {
-                // Create FormData and append audio file
-                const formData = new FormData();
+                showStatus('Converting audio...', 'info');
                 
-                // Determine file extension based on MIME type
-                const extension = audioBlob.type.includes('webm') ? 'webm' :
-                                 audioBlob.type.includes('mp4') ? 'mp4' : 'ogg';
+                // Convert blob to base64
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
                 
-                // Create a proper file object from the blob
-                const audioFile = new File([audioBlob], `voice_recording.${extension}`, {
-                    type: audioBlob.type,
-                    lastModified: Date.now()
-                });
+                reader.onloadend = async () => {
+                    const base64Audio = reader.result.split(',')[1];
+                    
+                    console.log('Audio converted to base64, length:', base64Audio.length);
+                    
+                    const payload = {
+                        audioData: base64Audio,
+                        mimeType: audioBlob.type,
+                        sessionId: sessionId,
+                        timestamp: new Date().toISOString(),
+                        size: audioBlob.size
+                    };
+
+                    console.log('Sending to webhook...');
+
+                    const response = await fetch(WEBHOOK_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    console.log('Response status:', response.status);
+
+                    if (response.ok) {
+                        // Check if response is audio
+                        const contentType = response.headers.get('content-type');
+                        
+                        if (contentType && contentType.includes('audio')) {
+                            // Get AI response text from header if available
+                            const aiResponseText = response.headers.get('X-AI-Response') || 'AI is speaking...';
+                            
+                            // Get audio blob
+                            const audioBlob = await response.blob();
+                            console.log('Received audio response:', audioBlob.size, 'bytes');
+                            
+                            // Play audio
+                            playAudioResponse(audioBlob, aiResponseText);
+                        } else {
+                            showStatus('Unexpected response format', 'error');
+                            showScreen('startScreen');
+                        }
+                    } else {
+                        showStatus('Failed to get response', 'error');
+                        console.error('Response status:', response.status);
+                        showScreen('startScreen');
+                    }
+                };
                 
-                formData.append('data', audioFile);  // Changed from 'audio' to 'data'
-                formData.append('sessionId', sessionId);
-                formData.append('timestamp', new Date().toISOString());
-
-                console.log('Sending audio to webhook...', {
-                    size: audioBlob.size,
-                    type: audioBlob.type,
-                    sessionId: sessionId,
-                    fileName: audioFile.name
-                });
-
-                // Log FormData contents
-                for (let pair of formData.entries()) {
-                    console.log(pair[0], pair[1]);
-                }
-
-                const response = await fetch(WEBHOOK_URL, {
-                    method: 'POST',
-                    body: formData
-                    // Don't set Content-Type header - browser will set it automatically with boundary
-                });
-
-                const responseText = await response.text();
-                console.log('Response status:', response.status);
-                console.log('Response:', responseText);
-
-                if (response.ok) {
-                    showStatus('Voice sent successfully', 'success');
-                } else {
-                    showStatus('Failed to send voice', 'error');
-                    console.error('Response status:', response.status);
-                }
+                reader.onerror = () => {
+                    showStatus('Error converting audio', 'error');
+                    showScreen('startScreen');
+                };
+                
             } catch (error) {
                 showStatus('Error sending voice', 'error');
-                console.error('Error sending to webhook:', error);
+                console.error('Error:', error);
+                showScreen('startScreen');
             }
         }
+
+        // Play audio response
+        function playAudioResponse(audioBlob, responseText) {
+            showScreen('playingScreen');
+            document.getElementById('responseText').textContent = responseText;
+            
+            const audioPlayer = document.getElementById('audioPlayer');
+            const audioUrl = URL.createObjectURL(audioBlob);
+            audioPlayer.src = audioUrl;
+            
+            audioPlayer.play();
+            
+            audioPlayer.onended = () => {
+                console.log('Audio playback finished');
+                URL.revokeObjectURL(audioUrl);
+            };
+            
+            audioPlayer.onerror = (error) => {
+                console.error('Audio playback error:', error);
+                showStatus('Error playing audio', 'error');
+            };
+        }
+
+        // Continue conversation
+        document.getElementById('continueBtn').addEventListener('click', () => {
+            showScreen('startScreen');
+        });
+
+        // End call buttons
+        document.getElementById('endCallBtn').addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+            showScreen('startScreen');
+            showStatus('Call ended', 'info');
+        });
+
+        document.getElementById('endCallBtn2').addEventListener('click', () => {
+            const audioPlayer = document.getElementById('audioPlayer');
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+            showScreen('startScreen');
+            showStatus('Call ended', 'info');
+        });
     </script>
 </body>
 </html>
