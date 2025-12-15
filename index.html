@@ -398,32 +398,21 @@
             try {
                 showStatus('Sending voice...', 'info');
                 
-                // Create FormData to send file
-                const formData = new FormData();
-                
-                // Determine file extension
-                const extension = audioBlob.type.includes('webm') ? 'webm' :
-                                 audioBlob.type.includes('mp4') ? 'mp4' : 'ogg';
-                
-                // Create file from blob
-                const audioFile = new File([audioBlob], `voice.${extension}`, {
-                    type: audioBlob.type,
-                    lastModified: Date.now()
-                });
-                
-                formData.append('voice', audioFile);
-                formData.append('sessionId', sessionId);
-                formData.append('timestamp', new Date().toISOString());
-
-                console.log('Sending to webhook...', {
+                console.log('Sending binary audio to webhook...', {
                     size: audioBlob.size,
                     type: audioBlob.type,
                     sessionId: sessionId
                 });
 
+                // Send raw binary data directly
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
-                    body: formData
+                    headers: {
+                        'Content-Type': audioBlob.type,
+                        'X-Session-ID': sessionId,
+                        'X-Timestamp': new Date().toISOString()
+                    },
+                    body: audioBlob  // Send raw binary blob directly
                 });
 
                 console.log('Response status:', response.status);
