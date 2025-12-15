@@ -3,319 +3,378 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice Agent (Refined)</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    
+    <title>Voice Interface</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background-color: #f4f7f6;
+            padding: 20px;
         }
 
-        .voice-agent-container {
-            background: #ffffff;
+        .container {
+            background: white;
+            border-radius: 20px;
             padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 100%;
             text-align: center;
-            width: 300px;
         }
 
-        /* --- Session Info --- */
-        .session-info {
-            font-size: 0.8em;
-            color: #888;
-            margin-bottom: 20px;
+        .mic-icon {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 30px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
         }
 
-        /* --- Mic and Status (Listening/Generating) --- */
-        .mic-section {
-            margin-bottom: 30px;
+        .mic-icon:hover {
+            transform: scale(1.05);
         }
 
-        #mic-icon {
-            font-size: 4em;
-            color: #ccc;
-            transition: color 0.3s;
-        }
-
-        #mic-icon.recording {
-            color: #e74c3c; /* Red color when recording */
+        .mic-icon.recording {
             animation: pulse 1.5s infinite;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         }
 
         @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.7; }
-            100% { transform: scale(1); opacity: 1; }
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
         }
 
-        .status-message {
+        .mic-icon svg {
+            width: 60px;
+            height: 60px;
+            fill: white;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px 0;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(235, 51, 73, 0.4);
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status.info {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status.success {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        .status.recording {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .session-id {
             margin-top: 15px;
-            font-weight: bold;
-            color: #333;
-            min-height: 20px; /* To prevent layout shift */
-        }
-
-        /* --- Buttons --- */
-        .controls-group {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+            font-size: 12px;
+            color: #666;
+            word-break: break-all;
         }
 
         .hidden {
-            display: none !important;
+            display: none;
         }
 
-        button {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1em;
-            font-weight: bold;
-            transition: background-color 0.2s;
-        }
-
-        .main-btn {
-            background-color: #3498db; /* Blue */
-            color: white;
-        }
-
-        .main-btn:hover {
-            background-color: #2980b9;
-        }
-
-        .action-btn.send {
-            background-color: #2ecc71; /* Green */
-            color: white;
-        }
-
-        .action-btn.send:hover {
-            background-color: #27ae60;
-        }
-
-        .action-btn.end {
-            background-color: #95a5a6; /* Gray */
-            color: white;
-        }
-
-        .action-btn.end:hover {
-            background-color: #7f8c8d;
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
-
-    <div class="voice-agent-container">
-        <p class="session-info">
-            Session ID: <span id="session-id">Loading...</span>
-        </p>
-
-        <div class="mic-section">
-            <i id="mic-icon" class="fas fa-microphone" aria-hidden="true"></i>
-            <p id="status-message" class="status-message">Click "Start Conversation" to begin.</p>
+    <div class="container">
+        <div id="startScreen">
+            <div class="mic-icon" id="micIcon">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+            </div>
+            <h2>Voice Interface</h2>
+            <button class="btn btn-primary" id="startBtn">Start Conversation</button>
+            <div class="session-id" id="sessionDisplay"></div>
         </div>
 
-        <div id="controls-initial" class="controls-group">
-            <button id="start-conversation-btn" class="main-btn">Start Conversation</button>
+        <div id="recordingScreen" class="hidden">
+            <div class="mic-icon recording" id="micIconRecording">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+            </div>
+            <h2>Recording...</h2>
+            <button class="btn btn-success" id="sendVoiceBtn">Send Voice</button>
+            <button class="btn btn-danger" id="endCallBtn">End Call</button>
+            <div class="status recording" id="statusMsg">Listening to your voice...</div>
+            <div class="session-id" id="sessionDisplayRecording"></div>
         </div>
 
-        <div id="controls-recording" class="controls-group hidden">
-            <button id="send-voice-btn" class="action-btn send">Send Voice</button>
-            <button id="end-call-btn" class="action-btn end">End Call</button>
-        </div>
-
-        <div id="controls-ready-to-record" class="controls-group hidden">
-            <button id="record-voice-btn" class="main-btn">Record Voice</button>
-            <button id="end-call-btn-2" class="action-btn end">End Call</button>
-        </div>
-
+        <div class="status info hidden" id="mainStatus"></div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- DOM Element References ---
-            const sessionIdDisplay = document.getElementById('session-id');
-            const startBtn = document.getElementById('start-conversation-btn');
-            const sendBtn = document.getElementById('send-voice-btn');
-            const endCallBtn = document.getElementById('end-call-btn');
-            const endCallBtn2 = document.getElementById('end-call-btn-2');
-            const recordVoiceBtn = document.getElementById('record-voice-btn');
-            const micIcon = document.getElementById('mic-icon');
-            const statusMessage = document.getElementById('status-message');
+        let mediaRecorder;
+        let audioChunks = [];
+        let sessionId = '';
+        const WEBHOOK_URL = 'https://parkashdev.app.n8n.cloud/webhook-test/voice-agent';
 
-            const controlsInitial = document.getElementById('controls-initial');
-            const controlsRecording = document.getElementById('controls-recording');
-            const controlsReadyToRecord = document.getElementById('controls-ready-to-record');
+        // Generate unique session ID
+        function generateSessionId() {
+            return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
 
-            // --- State and Constants ---
-            let mediaRecorder;
-            let audioChunks = [];
-            let stream; // Microphone stream
-            let sessionId;
-            const N8N_WEBHOOK_URL = 'https://devkhemani.app.n8n.cloud/webhook-test/voice-agent';
+        // Show status message
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('mainStatus');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.classList.remove('hidden');
+            setTimeout(() => {
+                status.classList.add('hidden');
+            }, 3000);
+        }
 
-            // --- UI Management ---
-
-            function generateSessionId() {
-                // Simple 8-character hex string for session tracking
-                return Math.random().toString(16).slice(2, 10);
-            }
-
-            function updateUI(state, message) {
-                // Hide all control groups
-                controlsInitial.classList.add('hidden');
-                controlsRecording.classList.add('hidden');
-                controlsReadyToRecord.classList.add('hidden');
-
-                // Reset mic visual state
-                micIcon.classList.remove('recording');
-                micIcon.style.color = '#ccc';
+        // Start conversation
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            try {
+                // Request microphone access with specific constraints
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: 44100
+                    } 
+                });
                 
-                switch (state) {
-                    case 'initial':
-                        controlsInitial.classList.remove('hidden');
-                        break;
-                    case 'recording':
-                        controlsRecording.classList.remove('hidden');
-                        micIcon.classList.add('recording'); // Triggers pulse animation (red mic)
-                        micIcon.style.color = '#e74c3c';
-                        break;
-                    case 'ready-to-record':
-                        controlsReadyToRecord.classList.remove('hidden');
-                        micIcon.style.color = '#3498db'; // Blue to indicate ready
-                        break;
-                }
-                statusMessage.textContent = message;
-            }
+                sessionId = generateSessionId();
+                document.getElementById('sessionDisplay').textContent = `Session ID: ${sessionId}`;
+                document.getElementById('sessionDisplayRecording').textContent = `Session ID: ${sessionId}`;
 
-            // --- Stream and Recording Control ---
-
-            function stopStream() {
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                    stream = null;
-                    console.log('Microphone stream stopped.');
-                }
-            }
-
-            function stopRecording() {
-                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                    mediaRecorder.stop();
-                    console.log('MediaRecorder stopped.');
-                }
-            }
-
-
-            // --- Core Logic ---
-
-            async function startRecording() {
-                // Clear previous audio data for a fresh recording
-                audioChunks = []; 
+                // Check for supported MIME types
+                const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' :
+                                MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' :
+                                MediaRecorder.isTypeSupported('audio/ogg') ? 'audio/ogg' : '';
                 
-                try {
-                    updateUI('recording', 'Recording your voice... Click Send Voice to transmit.');
-
-                    // Request stream only if not already active
-                    if (!stream) {
-                        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    }
-
-                    // Create a NEW MediaRecorder instance for this session
-                    mediaRecorder = new MediaRecorder(stream);
-                    
-                    mediaRecorder.ondataavailable = event => {
-                        audioChunks.push(event.data);
-                    };
-
-                    // CRITICAL: onstop triggers the function that sends the data
-                    mediaRecorder.onstop = sendRecordedAudio;
-
-                    mediaRecorder.start();
-                    console.log('Recording started.');
-
-                } catch (error) {
-                    console.error('Error starting recording:', error);
-                    updateUI('initial', 'Microphone access denied or error. Please allow access.');
-                    stopStream();
-                }
-            }
-
-            function handleSendVoice() {
-                // Stop recording. This triggers the 'onstop' event, which calls sendRecordedAudio.
-                stopRecording();
-                updateUI('ready-to-record', 'Sending voice and awaiting response...');
-            }
-
-            async function sendRecordedAudio() {
-                // Check if recording actually yielded data
-                if (audioChunks.length === 0) {
-                    // If no data, stop the stream and notify the user
-                    stopStream(); 
-                    updateUI('ready-to-record', 'Recording ended with no audio. Click Record Voice to speak again.');
-                    console.warn('No audio data recorded.');
+                if (!mimeType) {
+                    showStatus('No supported audio format found', 'error');
                     return;
                 }
 
-                // Create the Blob: Use the mimeType reported by the recorder for maximum compatibility
-                const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+                console.log('Using MIME type:', mimeType);
+
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: mimeType
+                });
                 
-                // Prepare FormData for the webhook (Crucial for file upload)
-                const formData = new FormData();
-                formData.append('voice', audioBlob, 'user_voice.webm'); // 'voice' is the expected field name in n8n
-                formData.append('session_id', sessionId);
+                audioChunks = [];
 
-                try {
-                    const response = await fetch(N8N_WEBHOOK_URL, {
-                        method: 'POST',
-                        body: formData,
-                        // Do not set Content-Type; the browser sets the correct 'multipart/form-data' boundary
-                    });
-
-                    if (response.ok) {
-                        updateUI('ready-to-record', `Voice sent successfully! Click Record Voice to speak again.`);
-                        console.log('Voice sent successfully. Server response:', await response.text());
-                    } else {
-                        updateUI('ready-to-record', `Failed to send voice. Error: ${response.status}.`);
-                        console.error('Failed to send voice. Status:', response.status);
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data && event.data.size > 0) {
+                        console.log('Audio chunk received:', event.data.size, 'bytes');
+                        audioChunks.push(event.data);
                     }
-                } catch (error) {
-                    console.error('Network or fetch error:', error);
-                    updateUI('ready-to-record', `Network Error. Click Record Voice to try again.`);
-                }
+                };
+
+                mediaRecorder.onstart = () => {
+                    console.log('Recording started');
+                };
+
+                mediaRecorder.onerror = (event) => {
+                    console.error('MediaRecorder error:', event.error);
+                    showStatus('Recording error', 'error');
+                };
+
+                // Start recording and collect data every second
+                mediaRecorder.start(1000);
+
+                // Switch to recording screen
+                document.getElementById('startScreen').classList.add('hidden');
+                document.getElementById('recordingScreen').classList.remove('hidden');
+
+                showStatus('Recording started', 'success');
+            } catch (error) {
+                showStatus('Microphone access denied', 'error');
+                console.error('Error accessing microphone:', error);
             }
-
-            function handleEndCall() {
-                stopRecording(); 
-                stopStream(); // Stops mic access completely
-                sessionId = null; 
-                sessionIdDisplay.textContent = 'N/A';
-                updateUI('initial', 'Conversation ended. Click "Start Conversation" to begin a new session.');
-            }
-
-            // --- Event Binding ---
-            
-            startBtn.addEventListener('click', () => {
-                sessionId = generateSessionId();
-                sessionIdDisplay.textContent = sessionId;
-                startRecording();
-            });
-
-            recordVoiceBtn.addEventListener('click', startRecording);
-            sendBtn.addEventListener('click', handleSendVoice);
-            endCallBtn.addEventListener('click', handleEndCall);
-            endCallBtn2.addEventListener('click', handleEndCall);
-
-            // --- Initialization ---
-            sessionIdDisplay.textContent = 'N/A';
         });
+
+        // Send voice
+        document.getElementById('sendVoiceBtn').addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+
+                mediaRecorder.onstop = async () => {
+                    console.log('Recording stopped. Chunks:', audioChunks.length);
+                    
+                    if (audioChunks.length === 0) {
+                        showStatus('No audio recorded', 'error');
+                        return;
+                    }
+
+                    const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+                    console.log('Audio blob created:', audioBlob.size, 'bytes, type:', audioBlob.type);
+                    
+                    if (audioBlob.size === 0) {
+                        showStatus('Empty audio recording', 'error');
+                    } else {
+                        showStatus('Sending voice...', 'info');
+                        await sendToWebhook(audioBlob);
+                    }
+                    
+                    // Stop all tracks and return to start screen
+                    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                    
+                    // Reset
+                    audioChunks = [];
+                    
+                    // Return to start screen
+                    document.getElementById('recordingScreen').classList.add('hidden');
+                    document.getElementById('startScreen').classList.remove('hidden');
+                };
+            }
+        });
+
+        // End call
+        document.getElementById('endCallBtn').addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+
+            // Return to start screen
+            document.getElementById('recordingScreen').classList.add('hidden');
+            document.getElementById('startScreen').classList.remove('hidden');
+            
+            showStatus('Call ended', 'info');
+        });
+
+        // Send audio to webhook
+        async function sendToWebhook(audioBlob) {
+            try {
+                // Create FormData and append audio file
+                const formData = new FormData();
+                
+                // Determine file extension based on MIME type
+                const extension = audioBlob.type.includes('webm') ? 'webm' :
+                                 audioBlob.type.includes('mp4') ? 'mp4' : 'ogg';
+                
+                // Create a proper file object from the blob
+                const audioFile = new File([audioBlob], `voice_recording.${extension}`, {
+                    type: audioBlob.type,
+                    lastModified: Date.now()
+                });
+                
+                formData.append('data', audioFile);  // Changed from 'audio' to 'data'
+                formData.append('sessionId', sessionId);
+                formData.append('timestamp', new Date().toISOString());
+
+                console.log('Sending audio to webhook...', {
+                    size: audioBlob.size,
+                    type: audioBlob.type,
+                    sessionId: sessionId,
+                    fileName: audioFile.name
+                });
+
+                // Log FormData contents
+                for (let pair of formData.entries()) {
+                    console.log(pair[0], pair[1]);
+                }
+
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    body: formData
+                    // Don't set Content-Type header - browser will set it automatically with boundary
+                });
+
+                const responseText = await response.text();
+                console.log('Response status:', response.status);
+                console.log('Response:', responseText);
+
+                if (response.ok) {
+                    showStatus('Voice sent successfully', 'success');
+                } else {
+                    showStatus('Failed to send voice', 'error');
+                    console.error('Response status:', response.status);
+                }
+            } catch (error) {
+                showStatus('Error sending voice', 'error');
+                console.error('Error sending to webhook:', error);
+            }
+        }
     </script>
 </body>
 </html>
